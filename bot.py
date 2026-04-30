@@ -67,6 +67,31 @@ def get_page_text(url):
     return response.text.lower()
 
 
+def is_real_queue(text):
+    strong_queue_signals = [
+        "you are in line",
+        "estimated wait",
+        "wait time",
+        "please wait while we verify",
+        "queue-it",
+        "line is paused",
+        "high traffic",
+        "waiting room",
+        "sign in to join the line",
+        "join the line",
+    ]
+
+    weak_signals = [
+        "queue",
+        "traffic",
+    ]
+
+    strong = any(s in text for s in strong_queue_signals)
+    weak = any(w in text for w in weak_signals)
+
+    return strong or (weak and "add to cart" not in text)
+
+
 def check_stock(url, text):
     url_lower = url.lower()
 
@@ -80,6 +105,8 @@ def check_stock(url, text):
         "estimated wait",
         "wait time",
         "line is paused",
+        "sign in to join the line",
+        "join the line",
     ]
 
     if any(word in text for word in queue_words):
@@ -165,6 +192,7 @@ def get_stock_signal(text):
         "queue",
         "waiting room",
         "high traffic",
+        "sign in to join the line",
     ]
 
     found = []
@@ -233,10 +261,6 @@ def classify_price(product, prices):
     return f"PRICE_FOUND (${lowest_price})"
 
 
-def is_search_page(status):
-    return status == "SEARCH_PAGE_CHECK"
-
-
 def format_restock_alert(store, product, status, price_status, url):
     return (
         f"🔥 **PokéPulse-Alerts | Item Live**\n\n"
@@ -250,16 +274,27 @@ def format_restock_alert(store, product, status, price_status, url):
     )
 
 
-def format_queue_alert(store, product, url):
+def format_real_queue_alert(store, product, url):
     return (
-        f"⚠️ **PokéPulse-Alerts | Queue Detected**\n\n"
+        f"🚨 **QUEUE LIVE — ENTER NOW**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product/Search:** {product}\n"
-        f"⏳ **Status:** Queue / high traffic detected\n\n"
+        f"⏳ **Status:** Queue Open / High Traffic Confirmed\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"🚨 **Action:** Sign in and be ready.\n"
-        f"🔗 **Queue/Search Link:**\n{url}\n\n"
-        f"⚠️ Queue does not guarantee product availability."
+        f"👉 **Join immediately:**\n{url}\n\n"
+        f"⚠️ Be signed in. Queue access does not guarantee product availability."
+    )
+
+
+def format_weak_queue_alert(store, product, url):
+    return (
+        f"🔵 **Queue Signal Detected — Unconfirmed**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product/Search:** {product}\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"Signal detected, but no confirmed queue access.\n"
+        f"This is being routed to monitor-feed only.\n\n"
+        f"🔗 **Link:**\n{url}"
     )
 
 
@@ -305,30 +340,36 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Queue alerts go to restock alerts, but only once per URL per run
+        # Queue system:
+        # Strong/real queue → #restock-alerts
+        # Weak/unconfirmed queue → #monitor-feed
         if status == "QUEUE_DETECTED":
             if alerted_urls.get(url) != "QUEUE":
-                print(f"⚠️ QUEUE DETECTED: {store} - {product}")
-                send_discord_alert(format_queue_alert(store, product, url), channel="restocks")
-                alerted_urls[url] = "QUEUE"
+                if is_real_queue(text):
+                    print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
+                    send_discord_alert(
+                        format_real_queue_alert(store, product, url),
+                        channel="restocks",
+                    )
+                    alerted_urls[url] = "QUEUE"
+                else:
+                    print(f"🔵 Weak queue signal: {store} - {product}")
+                    send_discord_alert(
+                        format_weak_queue_alert(store, product, url),
+                        channel="monitor",
+                    )
+                    alerted_urls[url] = "WEAK_QUEUE"
 
         current_signal = get_stock_signal(text)
         previous_signal = last_page_content.get(url, "")
 
-        # Search/page signal changes go to monitor-feed, not main alerts
+        # Signal changes go to monitor-feed only
         if previous_signal and current_signal != previous_signal:
             print(f"⚡ STOCK SIGNAL CHANGED: {store} - {product}")
-
-            if status == "SEARCH_PAGE_CHECK":
-                send_discord_alert(
-                    format_monitor_alert(store, product, previous_signal, current_signal, url),
-                    channel="monitor",
-                )
-            else:
-                send_discord_alert(
-                    format_monitor_alert(store, product, previous_signal, current_signal, url),
-                    channel="monitor",
-                )
+            send_discord_alert(
+                format_monitor_alert(store, product, previous_signal, current_signal, url),
+                channel="monitor",
+            )
 
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
