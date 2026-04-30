@@ -10,9 +10,14 @@ from datetime import datetime
 print("🚨 BOT STARTING")
 
 load_dotenv(".env")
-WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 
-print("Webhook loaded:", bool(WEBHOOK_URL))
+WEBHOOK_RESTOCKS = os.getenv("DISCORD_WEBHOOK_RESTOCKS") or os.getenv("DISCORD_WEBHOOK")
+WEBHOOK_MONITOR = os.getenv("DISCORD_WEBHOOK_MONITOR") or WEBHOOK_RESTOCKS
+WEBHOOK_LOGS = os.getenv("DISCORD_WEBHOOK_LOGS") or WEBHOOK_RESTOCKS
+
+print("Restock webhook loaded:", bool(WEBHOOK_RESTOCKS))
+print("Monitor webhook loaded:", bool(WEBHOOK_MONITOR))
+print("Logs webhook loaded:", bool(WEBHOOK_LOGS))
 
 products = pd.read_csv("products.csv")
 previous_status = {}
@@ -37,13 +42,21 @@ def save_page_cache(cache):
 last_page_content = load_page_cache()
 
 
-def send_discord_alert(message):
+def send_discord_alert(message, channel="restocks"):
     try:
-        if WEBHOOK_URL:
-            response = requests.post(WEBHOOK_URL, json={"content": message}, timeout=8)
-            print("Discord response:", response.status_code, response.text)
+        webhook = WEBHOOK_RESTOCKS
+
+        if channel == "monitor":
+            webhook = WEBHOOK_MONITOR
+        elif channel == "logs":
+            webhook = WEBHOOK_LOGS
+
+        if webhook:
+            response = requests.post(webhook, json={"content": message}, timeout=8)
+            print(f"Discord {channel} response:", response.status_code)
         else:
-            print("Discord webhook not loaded")
+            print(f"Discord webhook missing for {channel}")
+
     except Exception as e:
         print(f"Discord error: {e}")
 
@@ -111,7 +124,6 @@ def check_stock(url, text):
             "out of stock" in text
             or "sold out" in text
             or "unavailable" in text
-            or "unavailableitem" in text
             or "not available" in text
             or "notify me" in text
         ):
@@ -164,6 +176,14 @@ def get_stock_signal(text):
     return "|".join(found)
 
 
+def clean_signal(signal):
+    if not signal:
+        return "No major signal detected"
+
+    parts = signal.split("|")
+    return "\n".join([f"• {part.title()}" for part in parts if part.strip()])
+
+
 def extract_prices(text):
     prices = re.findall(r"\$\d+(?:\.\d{2})?", text)
     clean_prices = []
@@ -195,12 +215,66 @@ def classify_price(product, prices):
             return f"MSRP_OR_CLOSE (${lowest_price})"
         return f"OVERPRICED (${lowest_price})"
 
+    if "mini tin" in product_lower:
+        if lowest_price <= 13:
+            return f"MSRP_OR_CLOSE (${lowest_price})"
+        return f"OVERPRICED (${lowest_price})"
+
     if "tin" in product_lower:
-        if lowest_price <= 30:
+        if lowest_price <= 25:
+            return f"MSRP_OR_CLOSE (${lowest_price})"
+        return f"OVERPRICED (${lowest_price})"
+
+    if "collection" in product_lower or "box" in product_lower:
+        if lowest_price <= 45:
             return f"MSRP_OR_CLOSE (${lowest_price})"
         return f"OVERPRICED (${lowest_price})"
 
     return f"PRICE_FOUND (${lowest_price})"
+
+
+def is_search_page(status):
+    return status == "SEARCH_PAGE_CHECK"
+
+
+def format_restock_alert(store, product, status, price_status, url):
+    return (
+        f"🔥 **PokéPulse-Alerts | Item Live**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product:** {product}\n"
+        f"📊 **Status:** {status}\n"
+        f"💰 **Price:** {price_status}\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"🔗 **Buy Link:**\n{url}\n\n"
+        f"⚠️ Be signed in and checkout manually."
+    )
+
+
+def format_queue_alert(store, product, url):
+    return (
+        f"⚠️ **PokéPulse-Alerts | Queue Detected**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product/Search:** {product}\n"
+        f"⏳ **Status:** Queue / high traffic detected\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"🚨 **Action:** Sign in and be ready.\n"
+        f"🔗 **Queue/Search Link:**\n{url}\n\n"
+        f"⚠️ Queue does not guarantee product availability."
+    )
+
+
+def format_monitor_alert(store, product, old_signal, new_signal, url):
+    return (
+        f"🔵 **PokéPulse Monitor Feed | Search Activity**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product/Search:** {product}\n"
+        f"📊 **Signal Change Detected**\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"**Previous Signals:**\n{clean_signal(old_signal)}\n\n"
+        f"**Current Signals:**\n{clean_signal(new_signal)}\n\n"
+        f"🔗 **Link:**\n{url}\n\n"
+        f"ℹ️ This may be preorder, third-party, or search-page movement."
+    )
 
 
 while True:
@@ -231,55 +305,54 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Queue alert with cooldown
+        # Queue alerts go to restock alerts, but only once per URL per run
         if status == "QUEUE_DETECTED":
             if alerted_urls.get(url) != "QUEUE":
                 print(f"⚠️ QUEUE DETECTED: {store} - {product}")
-
-                send_discord_alert(
-                    f"⚠️ **PokéPulse-Alerts**\n\n"
-                    f"⏳ **Queue Detected**\n"
-                    f"🏪 **Store:** {store}\n"
-                    f"📦 **Product:** {product}\n\n"
-                    f"🔗 **Link:**\n{url}"
-                )
-
+                send_discord_alert(format_queue_alert(store, product, url), channel="restocks")
                 alerted_urls[url] = "QUEUE"
 
         current_signal = get_stock_signal(text)
         previous_signal = last_page_content.get(url, "")
 
+        # Search/page signal changes go to monitor-feed, not main alerts
         if previous_signal and current_signal != previous_signal:
             print(f"⚡ STOCK SIGNAL CHANGED: {store} - {product}")
-            send_discord_alert(
-                f"⚡ **PokéPulse-Alerts**\n\n"
-                f"📊 **Stock Signal Changed**\n"
-                f"🏪 **Store:** {store}\n"
-                f"📦 **Product:** {product}\n"
-                f"Old: {previous_signal}\n"
-                f"New: {current_signal}\n\n"
-                f"🔗 **Link:**\n{url}"
-            )
+
+            if status == "SEARCH_PAGE_CHECK":
+                send_discord_alert(
+                    format_monitor_alert(store, product, previous_signal, current_signal, url),
+                    channel="monitor",
+                )
+            else:
+                send_discord_alert(
+                    format_monitor_alert(store, product, previous_signal, current_signal, url),
+                    channel="monitor",
+                )
 
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
 
-        # Restock alert with cooldown
+        # Clean restock alert only for direct product pages
         if url in previous_status:
             if previous_status[url] == "OUT_OF_STOCK" and status == "IN_STOCK":
                 if "OVERPRICED" not in price_status:
                     if alerted_urls.get(url) != "IN_STOCK":
-                        message = (
-                            f"🔥 **PokéPulse-Alerts**\n\n"
-                            f"🏪 **Store:** {store}\n"
-                            f"📦 **Product:** {product}\n"
-                            f"📊 **Status:** {status}\n"
-                            f"💰 **Price:** {price_status}\n\n"
-                            f"🔗 **Link:**\n{url}"
+                        send_discord_alert(
+                            format_restock_alert(store, product, status, price_status, url),
+                            channel="restocks",
                         )
-
-                        send_discord_alert(message)
                         alerted_urls[url] = "IN_STOCK"
+
+                        send_discord_alert(
+                            f"🧾 **Drop Logged**\n\n"
+                            f"🏪 Store: {store}\n"
+                            f"📦 Product: {product}\n"
+                            f"💰 Price: {price_status}\n"
+                            f"🕒 Time: {date} {time_now}\n"
+                            f"🔗 Link: {url}",
+                            channel="logs",
+                        )
 
         previous_status[url] = status
 
