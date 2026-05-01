@@ -279,10 +279,24 @@ def format_real_queue_alert(store, product, url):
         f"🚨 **QUEUE LIVE — ENTER NOW**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product/Search:** {product}\n"
-        f"⏳ **Status:** Queue Open / High Traffic Confirmed\n\n"
+        f"⏳ **Status:** Queue Open / High Traffic\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
         f"👉 **Join immediately:**\n{url}\n\n"
-        f"⚠️ Be signed in. Queue access does not guarantee product availability."
+        f"⚠️ Be signed in already.\n"
+        f"⚠️ Stay ready — drops may follow shortly."
+    )
+
+
+def format_predrop_warning(store, product, url):
+    return (
+        f"⚠️ **PRE-DROP WARNING**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product/Search:** {product}\n"
+        f"⏳ **Signal:** Queue / traffic activity detected\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"🚨 **Action:** Sign in now and be ready.\n"
+        f"🕒 Possible drop window may be opening soon.\n\n"
+        f"🔗 **Link:**\n{url}"
     )
 
 
@@ -347,10 +361,17 @@ while True:
             if alerted_urls.get(url) != "QUEUE":
                 if is_real_queue(text):
                     print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
+
+                    send_discord_alert(
+                        format_predrop_warning(store, product, url),
+                        channel="restocks",
+                    )
+
                     send_discord_alert(
                         format_real_queue_alert(store, product, url),
                         channel="restocks",
                     )
+
                     alerted_urls[url] = "QUEUE"
                 else:
                     print(f"🔵 Weak queue signal: {store} - {product}")
