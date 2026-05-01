@@ -24,3 +24,30 @@ PokemonCenter,Surging Sparks Search,https://www.pokemoncenter.com/search/surging
 Target,Perfect Order Search,https://www.target.com/s?searchTerm=perfect+order+pokemon,MEDIUM
 Walmart,Perfect Order Search,https://www.walmart.com/search?q=perfect+order+pokemon,MEDIUM
 PokemonCenter,Perfect Order Search,https://www.pokemoncenter.com/search/perfect-order,MEDIUM
+store,product,url,priority
+Walmart,Ascended Heroes Booster Bundle,https://www.walmart.com/ip/18728422476,HIGH
+Walmart,Ascended Heroes ETB,https://www.walmart.com/ip/18710966734,HIGH
+Walmart,Ascended Heroes EX Box,https://www.walmart.com/ip/19620004893,MEDIUM
+Walmart,Ascended Heroes Deluxe Pin Collection,https://www.walmart.com/ip/19012610850,MEDIUM
+Walmart,Ascended Heroes 2-Pack Blister,https://www.walmart.com/ip/18911118976,LOW
+Walmart,Ascended Heroes Mini Tin,https://www.walmart.com/ip/18933850466,MEDIUM
+Target,Ascended Heroes Booster Bundle,https://www.target.com/p/-/A-95120834,HIGH
+Target,Ascended Heroes Elite Trainer Box,https://www.target.com/p/-/A-95082118,HIGH
+Target,Ascended Heroes Mega Lucario Premium Collection,https://www.target.com/p/-/A-1010583462,MEDIUM
+Target,Ascended Heroes Mega Gardevoir Premium Collection,https://www.target.com/p/-/A-1010583463,MEDIUM
+Target,Ascended Heroes Mega Emboar EX Box,https://www.target.com/p/-/A-1011165569,MEDIUM
+Target,Ascended Heroes Mega Feraligatr EX Box,https://www.target.com/p/-/A-1011207043,MEDIUM
+Target,Ascended Heroes Mega Meganium EX Box,https://www.target.com/p/-/A-1011165557,MEDIUM
+Target,Ascended Heroes Mini Tin (Togepi/Totodile),https://www.target.com/p/-/A-1009818851,LOW
+Target,Ascended Heroes Mini Tin (Clefairy/Chikorita),https://www.target.com/p/-/A-1010422938,LOW
+Target,Ascended Heroes Mini Tin (Riolu/Darumaka),https://www.target.com/p/-/A-1009818850,LOW
+Walmart,Destined Rivals Booster Bundle,https://www.walmart.com/ip/16019713971,HIGH
+Walmart,Destined Rivals Elite Trainer Box,https://www.walmart.com/ip/15718673510,HIGH
+Walmart,Destined Rivals Mewtwo ex Tin,https://www.walmart.com/ip/17782117769,MEDIUM
+Walmart,Destined Rivals Persian ex Tin,https://www.walmart.com/ip/17794762333,MEDIUM
+Walmart,Destined Rivals Nidoking ex Tin,https://www.walmart.com/ip/17800263792,MEDIUM
+Walmart,Destined Rivals 3-Pack Blister,https://www.walmart.com/ip/16060605120,LOW
+Walmart,Destined Rivals Single Blister Pack,https://www.walmart.com/ip/16034470614,LOW
+Target,Destined Rivals Booster Bundle,https://www.target.com/p/-/A-94300067,HIGH
+Target,Destined Rivals Elite Trainer Box,https://www.target.com/p/-/A-94300069,HIGH
+Target,Destined Rivals Sleeved Booster Pack,https://www.target.com/p/-/A-1004021929,LOW
