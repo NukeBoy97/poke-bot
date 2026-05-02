@@ -83,7 +83,6 @@ def is_target_traffic_spike(text):
         "high traffic",
         "too much traffic",
     ]
-
     return any(word in text for word in traffic_words)
 
 
@@ -163,7 +162,6 @@ def check_stock(url, text):
     if any(word in text for word in out_stock_words):
         return "OUT_OF_STOCK"
 
-    # Stronger Target detection
     if "target.com" in url_lower:
         target_stock_words = [
             "add to cart",
@@ -265,39 +263,73 @@ def extract_prices(text):
     return clean_prices
 
 
+def get_price_range(product):
+    p = product.lower()
+
+    if "booster bundle" in p:
+        return 26, 32
+
+    if "pc etb" in p or "pokemon center elite trainer" in p:
+        return 60, 75
+
+    if "etb" in p or "elite trainer" in p:
+        return 45, 65
+
+    if "mini tin" in p:
+        return 8, 13
+
+    if "tin" in p:
+        return 18, 30
+
+    if "3-pack blister" in p:
+        return 12, 18
+
+    if "2-pack blister" in p:
+        return 9, 14
+
+    if "single blister" in p or "sleeved booster" in p or "booster pack" in p:
+        return 4, 8
+
+    if "ex box" in p:
+        return 18, 30
+
+    if "premium collection" in p or "poster collection" in p:
+        return 35, 65
+
+    if "sticker" in p:
+        return 10, 18
+
+    if "collection" in p or "box" in p:
+        return 18, 50
+
+    return None, None
+
+
 def classify_price(product, prices):
     if not prices:
         return "UNKNOWN_PRICE"
 
+    low, high = get_price_range(product)
+
+    if low is None:
+        lowest_price = min(prices)
+        return f"PRICE_FOUND (${lowest_price})"
+
+    matching_prices = [p for p in prices if low <= p <= high]
+
+    if matching_prices:
+        best_price = min(matching_prices)
+        return f"MSRP_OR_CLOSE (${best_price})"
+
     lowest_price = min(prices)
-    product_lower = product.lower()
 
-    if "booster bundle" in product_lower:
-        if lowest_price <= 35:
-            return f"MSRP_OR_CLOSE (${lowest_price})"
+    if lowest_price > high:
         return f"OVERPRICED (${lowest_price})"
 
-    if "etb" in product_lower or "elite trainer" in product_lower:
-        if lowest_price <= 65:
-            return f"MSRP_OR_CLOSE (${lowest_price})"
-        return f"OVERPRICED (${lowest_price})"
+    if lowest_price < low:
+        return f"PRICE_SUSPICIOUS (${lowest_price})"
 
-    if "mini tin" in product_lower:
-        if lowest_price <= 13:
-            return f"MSRP_OR_CLOSE (${lowest_price})"
-        return f"OVERPRICED (${lowest_price})"
-
-    if "tin" in product_lower:
-        if lowest_price <= 25:
-            return f"MSRP_OR_CLOSE (${lowest_price})"
-        return f"OVERPRICED (${lowest_price})"
-
-    if "collection" in product_lower or "box" in product_lower:
-        if lowest_price <= 45:
-            return f"MSRP_OR_CLOSE (${lowest_price})"
-        return f"OVERPRICED (${lowest_price})"
-
-    return f"PRICE_FOUND (${lowest_price})"
+    return f"PRICE_SUSPICIOUS (${lowest_price})"
 
 
 def format_restock_alert(store, product, status, price_status, url):
@@ -458,7 +490,7 @@ while True:
         # Clean restock alert
         if url in previous_status:
             if previous_status[url] == "OUT_OF_STOCK" and status == "IN_STOCK":
-                if "OVERPRICED" not in price_status:
+                if "OVERPRICED" not in price_status and "PRICE_SUSPICIOUS" not in price_status:
                     if alerted_urls.get(url) != "IN_STOCK":
                         send_discord_alert(
                             format_restock_alert(store, product, status, price_status, url),
