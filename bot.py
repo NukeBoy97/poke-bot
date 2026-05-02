@@ -22,12 +22,13 @@ print("Logs webhook loaded:", bool(WEBHOOK_LOGS))
 products = pd.read_csv("products.csv")
 
 previous_status = {}
-alerted_urls = {}
 cooldowns = {}
+stable_counts = {}
 
 CACHE_FILE = "page_cache.json"
-CHECK_INTERVAL_SECONDS = 15
+CHECK_INTERVAL_SECONDS = 12
 COOLDOWN_SECONDS = 120
+REQUIRED_STABLE_CHECKS = 2
 
 
 def can_alert(url, alert_type):
@@ -112,18 +113,12 @@ def is_real_queue(text):
         "please wait while we verify",
         "queue-it",
         "line is paused",
-        "high traffic",
         "waiting room",
         "sign in to join the line",
         "join the line",
     ]
 
-    weak_signals = ["queue", "traffic"]
-
-    strong = any(s in text for s in strong_queue_signals)
-    weak = any(w in text for w in weak_signals)
-
-    return strong or (weak and "add to cart" not in text)
+    return any(s in text for s in strong_queue_signals)
 
 
 def check_stock(url, text):
@@ -293,9 +288,6 @@ def get_price_range(product):
     if "mini tin" in p:
         return 8, 13
 
-    if "mewtwo ex tin" in p or "persian ex tin" in p or "nidoking ex tin" in p:
-        return 20, 30
-
     if "tin" in p:
         return 18, 30
 
@@ -350,9 +342,13 @@ def classify_price(product, prices):
     return f"PRICE_SUSPICIOUS (${lowest_price})"
 
 
+def is_good_price(price_status):
+    return "MSRP_OR_CLOSE" in price_status
+
+
 def format_restock_alert(store, product, status, price_status, url):
     return (
-        f"🔥 **PokéPulse-Alerts | Item Live**\n\n"
+        f"🔥 **PokéPulse-Alerts | ITEM LIVE**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product:** {product}\n"
         f"📊 **Status:** {status}\n"
@@ -363,15 +359,15 @@ def format_restock_alert(store, product, status, price_status, url):
     )
 
 
-def format_target_traffic_alert(store, product, url):
+def format_target_traffic_alert(store, product, price_status, url):
     return (
-        f"🎯 **TARGET TRAFFIC SPIKE DETECTED**\n\n"
+        f"🎯 **Monitor Feed | Target Traffic Spike**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product:** {product}\n"
-        f"📊 **Signal:** Target traffic/cart error detected\n\n"
+        f"💰 **Price Check:** {price_status}\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"🚨 **Action:** Stay on page and keep trying.\n"
-        f"Target may be getting hammered during a real drop.\n\n"
+        f"Traffic/cart error detected.\n"
+        f"This is useful data, but not a confirmed drop.\n\n"
         f"🔗 **Link:**\n{url}"
     )
 
@@ -394,7 +390,7 @@ def format_predrop_warning(store, product, url):
         f"⚠️ **PRE-DROP WARNING**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product/Search:** {product}\n"
-        f"⏳ **Signal:** Queue / traffic activity detected\n\n"
+        f"⏳ **Signal:** Queue activity detected\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
         f"🚨 **Action:** Sign in now and be ready.\n"
         f"🕒 Possible drop window may be opening soon.\n\n"
@@ -404,27 +400,26 @@ def format_predrop_warning(store, product, url):
 
 def format_weak_queue_alert(store, product, url):
     return (
-        f"🔵 **Queue Signal Detected — Unconfirmed**\n\n"
+        f"🔵 **Monitor Feed | Queue Signal Unconfirmed**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product/Search:** {product}\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"Signal detected, but no confirmed queue access.\n"
-        f"This is being routed to monitor-feed only.\n\n"
+        f"Queue wording detected, but no confirmed queue access.\n"
+        f"This stays in monitor-feed only.\n\n"
         f"🔗 **Link:**\n{url}"
     )
 
 
 def format_monitor_alert(store, product, old_signal, new_signal, url):
     return (
-        f"🔵 **PokéPulse Monitor Feed | Search Activity**\n\n"
+        f"🔵 **PokéPulse Monitor Feed | Signal Change**\n\n"
         f"🏪 **Store:** {store}\n"
-        f"📦 **Product/Search:** {product}\n"
-        f"📊 **Signal Change Detected**\n\n"
+        f"📦 **Product/Search:** {product}\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
         f"**Previous Signals:**\n{clean_signal(old_signal)}\n\n"
         f"**Current Signals:**\n{clean_signal(new_signal)}\n\n"
         f"🔗 **Link:**\n{url}\n\n"
-        f"ℹ️ This may be preorder, third-party, or search-page movement."
+        f"ℹ️ Useful for pattern tracking, not always actionable."
     )
 
 
@@ -456,17 +451,19 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
+        # Traffic spikes are data only, not action alerts
         if status == "TARGET_TRAFFIC_SPIKE":
             if can_alert(url, "TARGET_TRAFFIC_SPIKE"):
                 print(f"🎯 TARGET TRAFFIC SPIKE: {store} - {product}")
                 send_discord_alert(
-                    format_target_traffic_alert(store, product, url),
-                    channel="restocks",
+                    format_target_traffic_alert(store, product, price_status, url),
+                    channel="monitor",
                 )
 
+        # Queue system
         if status == "QUEUE_DETECTED":
-            if can_alert(url, "QUEUE"):
-                if is_real_queue(text):
+            if is_real_queue(text):
+                if can_alert(url, "REAL_QUEUE"):
                     print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
 
                     send_discord_alert(
@@ -478,7 +475,8 @@ while True:
                         format_real_queue_alert(store, product, url),
                         channel="restocks",
                     )
-                else:
+            else:
+                if can_alert(url, "WEAK_QUEUE"):
                     print(f"🔵 Weak queue signal: {store} - {product}")
                     send_discord_alert(
                         format_weak_queue_alert(store, product, url),
@@ -489,7 +487,7 @@ while True:
         previous_signal = last_page_content.get(url, "")
 
         if previous_signal and current_signal != previous_signal:
-            print(f"⚡ STOCK SIGNAL CHANGED: {store} - {product}")
+            print(f"⚡ SIGNAL CHANGED: {store} - {product}")
             if can_alert(url, "SIGNAL_CHANGE"):
                 send_discord_alert(
                     format_monitor_alert(store, product, previous_signal, current_signal, url),
@@ -499,24 +497,30 @@ while True:
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
 
-        if url in previous_status:
-            if previous_status[url] == "OUT_OF_STOCK" and status == "IN_STOCK":
-                if "OVERPRICED" not in price_status and "PRICE_SUSPICIOUS" not in price_status:
-                    if can_alert(url, "IN_STOCK"):
-                        send_discord_alert(
-                            format_restock_alert(store, product, status, price_status, url),
-                            channel="restocks",
-                        )
+        # Stable confirmed in-stock alert
+        if status == "IN_STOCK":
+            stable_counts[url] = stable_counts.get(url, 0) + 1
 
-                        send_discord_alert(
-                            f"🧾 **Drop Logged**\n\n"
-                            f"🏪 Store: {store}\n"
-                            f"📦 Product: {product}\n"
-                            f"💰 Price: {price_status}\n"
-                            f"🕒 Time: {date} {time_now}\n"
-                            f"🔗 Link: {url}",
-                            channel="logs",
-                        )
+            if stable_counts[url] >= REQUIRED_STABLE_CHECKS:
+                if previous_status.get(url) != "IN_STOCK":
+                    if is_good_price(price_status):
+                        if can_alert(url, "IN_STOCK"):
+                            send_discord_alert(
+                                format_restock_alert(store, product, status, price_status, url),
+                                channel="restocks",
+                            )
+
+                            send_discord_alert(
+                                f"🧾 **Drop Logged**\n\n"
+                                f"🏪 Store: {store}\n"
+                                f"📦 Product: {product}\n"
+                                f"💰 Price: {price_status}\n"
+                                f"🕒 Time: {date} {time_now}\n"
+                                f"🔗 Link: {url}",
+                                channel="logs",
+                            )
+        else:
+            stable_counts[url] = 0
 
         previous_status[url] = status
 
