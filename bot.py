@@ -20,11 +20,29 @@ print("Monitor webhook loaded:", bool(WEBHOOK_MONITOR))
 print("Logs webhook loaded:", bool(WEBHOOK_LOGS))
 
 products = pd.read_csv("products.csv")
+
 previous_status = {}
 alerted_urls = {}
+cooldowns = {}
 
 CACHE_FILE = "page_cache.json"
 CHECK_INTERVAL_SECONDS = 15
+COOLDOWN_SECONDS = 120
+
+
+def can_alert(url, alert_type):
+    now = time.time()
+    key = f"{url}_{alert_type}"
+
+    if key not in cooldowns:
+        cooldowns[key] = now
+        return True
+
+    if now - cooldowns[key] >= COOLDOWN_SECONDS:
+        cooldowns[key] = now
+        return True
+
+    return False
 
 
 def load_page_cache():
@@ -100,10 +118,7 @@ def is_real_queue(text):
         "join the line",
     ]
 
-    weak_signals = [
-        "queue",
-        "traffic",
-    ]
+    weak_signals = ["queue", "traffic"]
 
     strong = any(s in text for s in strong_queue_signals)
     weak = any(w in text for w in weak_signals)
@@ -278,6 +293,9 @@ def get_price_range(product):
     if "mini tin" in p:
         return 8, 13
 
+    if "mewtwo ex tin" in p or "persian ex tin" in p or "nidoking ex tin" in p:
+        return 20, 30
+
     if "tin" in p:
         return 18, 30
 
@@ -438,19 +456,16 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Target traffic spike alert
         if status == "TARGET_TRAFFIC_SPIKE":
-            if alerted_urls.get(url) != "TARGET_TRAFFIC_SPIKE":
+            if can_alert(url, "TARGET_TRAFFIC_SPIKE"):
                 print(f"🎯 TARGET TRAFFIC SPIKE: {store} - {product}")
                 send_discord_alert(
                     format_target_traffic_alert(store, product, url),
                     channel="restocks",
                 )
-                alerted_urls[url] = "TARGET_TRAFFIC_SPIKE"
 
-        # Queue system
         if status == "QUEUE_DETECTED":
-            if alerted_urls.get(url) != "QUEUE":
+            if can_alert(url, "QUEUE"):
                 if is_real_queue(text):
                     print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
 
@@ -463,40 +478,35 @@ while True:
                         format_real_queue_alert(store, product, url),
                         channel="restocks",
                     )
-
-                    alerted_urls[url] = "QUEUE"
                 else:
                     print(f"🔵 Weak queue signal: {store} - {product}")
                     send_discord_alert(
                         format_weak_queue_alert(store, product, url),
                         channel="monitor",
                     )
-                    alerted_urls[url] = "WEAK_QUEUE"
 
         current_signal = get_stock_signal(text)
         previous_signal = last_page_content.get(url, "")
 
-        # Signal changes go to monitor-feed only
         if previous_signal and current_signal != previous_signal:
             print(f"⚡ STOCK SIGNAL CHANGED: {store} - {product}")
-            send_discord_alert(
-                format_monitor_alert(store, product, previous_signal, current_signal, url),
-                channel="monitor",
-            )
+            if can_alert(url, "SIGNAL_CHANGE"):
+                send_discord_alert(
+                    format_monitor_alert(store, product, previous_signal, current_signal, url),
+                    channel="monitor",
+                )
 
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
 
-        # Clean restock alert
         if url in previous_status:
             if previous_status[url] == "OUT_OF_STOCK" and status == "IN_STOCK":
                 if "OVERPRICED" not in price_status and "PRICE_SUSPICIOUS" not in price_status:
-                    if alerted_urls.get(url) != "IN_STOCK":
+                    if can_alert(url, "IN_STOCK"):
                         send_discord_alert(
                             format_restock_alert(store, product, status, price_status, url),
                             channel="restocks",
                         )
-                        alerted_urls[url] = "IN_STOCK"
 
                         send_discord_alert(
                             f"🧾 **Drop Logged**\n\n"
