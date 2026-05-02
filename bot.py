@@ -105,18 +105,28 @@ def is_target_traffic_spike(text):
 
 
 def has_real_queue_access(text):
-    real_queue_words = [
-        "sign in to join the line",
-        "join the line",
+    strong_signals = [
         "you are in line",
         "estimated wait",
         "wait time",
         "waiting room",
+        "your turn is coming",
         "line is paused",
         "queue-it",
-        "queue it",
     ]
-    return any(word in text for word in real_queue_words)
+
+    mid_signals = [
+        "sign in to join the line",
+        "join the line",
+    ]
+
+    if any(signal in text for signal in strong_signals):
+        return "STRONG"
+
+    if any(signal in text for signal in mid_signals):
+        return "MID"
+
+    return None
 
 
 def has_weak_queue_signal(text):
@@ -136,8 +146,13 @@ def check_stock(url, text):
     if "target.com" in url_lower and is_target_traffic_spike(text):
         return "TARGET_TRAFFIC_SPIKE"
 
-    if has_real_queue_access(text):
+    queue_signal = has_real_queue_access(text)
+
+    if queue_signal == "STRONG":
         return "REAL_QUEUE"
+
+    if queue_signal == "MID":
+        return "POSSIBLE_QUEUE"
 
     if has_weak_queue_signal(text):
         return "WEAK_QUEUE"
@@ -373,7 +388,7 @@ def format_real_queue_alert(store, product, url):
         f"🚨 **REAL QUEUE LIVE — ENTER NOW**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product:** {product}\n"
-        f"⏳ **Status:** Real queue access detected\n\n"
+        f"⏳ **Status:** Strong queue access detected\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
         f"👉 **Join immediately:**\n{url}\n\n"
         f"⚠️ Be signed in already.\n"
@@ -381,9 +396,22 @@ def format_real_queue_alert(store, product, url):
     )
 
 
-def format_predrop_warning(store, product, url):
+def format_possible_queue_alert(store, product, url):
     return (
-        f"⚠️ **PRE-DROP / QUEUE SIGNAL**\n\n"
+        f"🟡 **Monitor Feed | Possible Queue**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product:** {product}\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"Possible queue wording detected.\n"
+        f"This is NOT fully confirmed yet.\n"
+        f"Stay ready, but this is monitor-feed only.\n\n"
+        f"🔗 **Link:**\n{url}"
+    )
+
+
+def format_weak_queue_alert(store, product, url):
+    return (
+        f"⚠️ **Monitor Feed | Weak Queue / Traffic Signal**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product:** {product}\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
@@ -450,11 +478,19 @@ while True:
                     channel="restocks",
                 )
 
+        if status == "POSSIBLE_QUEUE":
+            if can_alert(url, "POSSIBLE_QUEUE"):
+                print(f"🟡 POSSIBLE QUEUE: {store} - {product}")
+                send_discord_alert(
+                    format_possible_queue_alert(store, product, url),
+                    channel="monitor",
+                )
+
         if status == "WEAK_QUEUE":
             if can_alert(url, "WEAK_QUEUE"):
                 print(f"⚠️ WEAK QUEUE SIGNAL: {store} - {product}")
                 send_discord_alert(
-                    format_predrop_warning(store, product, url),
+                    format_weak_queue_alert(store, product, url),
                     channel="monitor",
                 )
 
