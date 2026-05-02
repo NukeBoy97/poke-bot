@@ -99,26 +99,35 @@ def is_target_traffic_spike(text):
         "please try again",
         "cart is unavailable",
         "unable to add to cart",
-        "high traffic",
         "too much traffic",
     ]
     return any(word in text for word in traffic_words)
 
 
-def is_real_queue(text):
-    strong_queue_signals = [
+def has_real_queue_access(text):
+    real_queue_words = [
+        "sign in to join the line",
+        "join the line",
         "you are in line",
         "estimated wait",
         "wait time",
-        "please wait while we verify",
-        "queue-it",
-        "line is paused",
         "waiting room",
-        "sign in to join the line",
-        "join the line",
+        "line is paused",
+        "queue-it",
+        "queue it",
     ]
+    return any(word in text for word in real_queue_words)
 
-    return any(s in text for s in strong_queue_signals)
+
+def has_weak_queue_signal(text):
+    weak_words = [
+        "queue",
+        "high traffic",
+        "traffic is high",
+        "please wait",
+        "traffic",
+    ]
+    return any(word in text for word in weak_words)
 
 
 def check_stock(url, text):
@@ -127,22 +136,13 @@ def check_stock(url, text):
     if "target.com" in url_lower and is_target_traffic_spike(text):
         return "TARGET_TRAFFIC_SPIKE"
 
-    queue_words = [
-        "queue",
-        "waiting room",
-        "please wait",
-        "you are in line",
-        "high traffic",
-        "traffic is high",
-        "estimated wait",
-        "wait time",
-        "line is paused",
-        "sign in to join the line",
-        "join the line",
-    ]
+    # REAL queue only
+    if has_real_queue_access(text):
+        return "REAL_QUEUE"
 
-    if any(word in text for word in queue_words):
-        return "QUEUE_DETECTED"
+    # Weak queue/high traffic signal only
+    if has_weak_queue_signal(text):
+        return "WEAK_QUEUE"
 
     search_page_words = [
         "searchpage.jsp",
@@ -220,14 +220,8 @@ def check_stock(url, text):
 def get_stock_signal(text):
     keywords = [
         "add to cart",
-        "add to bag",
         "out of stock",
         "sold out",
-        "currently unavailable",
-        "temporarily unavailable",
-        "not available",
-        "coming soon",
-        "notify me when available",
         "ship it",
         "pickup",
         "available",
@@ -243,7 +237,6 @@ def get_stock_signal(text):
     ]
 
     found = []
-
     for keyword in keywords:
         if keyword in text:
             found.append(keyword)
@@ -374,38 +367,25 @@ def format_target_traffic_alert(store, product, price_status, url):
 
 def format_real_queue_alert(store, product, url):
     return (
-        f"🚨 **QUEUE LIVE — ENTER NOW**\n\n"
+        f"🚨 **REAL QUEUE LIVE — ENTER NOW**\n\n"
         f"🏪 **Store:** {store}\n"
-        f"📦 **Product/Search:** {product}\n"
-        f"⏳ **Status:** Queue Open / High Traffic\n\n"
+        f"📦 **Product:** {product}\n"
+        f"⏳ **Status:** Real queue access detected\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
         f"👉 **Join immediately:**\n{url}\n\n"
         f"⚠️ Be signed in already.\n"
-        f"⚠️ Stay ready — drops may follow shortly."
+        f"⚠️ Do not refresh if you enter the line."
     )
 
 
 def format_predrop_warning(store, product, url):
     return (
-        f"⚠️ **PRE-DROP WARNING**\n\n"
+        f"⚠️ **PRE-DROP / QUEUE SIGNAL**\n\n"
         f"🏪 **Store:** {store}\n"
-        f"📦 **Product/Search:** {product}\n"
-        f"⏳ **Signal:** Queue activity detected\n\n"
+        f"📦 **Product:** {product}\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"🚨 **Action:** Sign in now and be ready.\n"
-        f"🕒 Possible drop window may be opening soon.\n\n"
-        f"🔗 **Link:**\n{url}"
-    )
-
-
-def format_weak_queue_alert(store, product, url):
-    return (
-        f"🔵 **Monitor Feed | Queue Signal Unconfirmed**\n\n"
-        f"🏪 **Store:** {store}\n"
-        f"📦 **Product/Search:** {product}\n\n"
-        f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"Queue wording detected, but no confirmed queue access.\n"
-        f"This stays in monitor-feed only.\n\n"
+        f"Weak queue/high traffic signal detected.\n"
+        f"This is NOT confirmed queue access yet.\n\n"
         f"🔗 **Link:**\n{url}"
     )
 
@@ -451,7 +431,7 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Traffic spikes are data only, not action alerts
+        # Target traffic = monitor only
         if status == "TARGET_TRAFFIC_SPIKE":
             if can_alert(url, "TARGET_TRAFFIC_SPIKE"):
                 print(f"🎯 TARGET TRAFFIC SPIKE: {store} - {product}")
@@ -460,28 +440,23 @@ while True:
                     channel="monitor",
                 )
 
-        # Queue system
-        if status == "QUEUE_DETECTED":
-            if is_real_queue(text):
-                if can_alert(url, "REAL_QUEUE"):
-                    print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
+        # Real queue = restock alert
+        if status == "REAL_QUEUE":
+            if can_alert(url, "REAL_QUEUE"):
+                print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
+                send_discord_alert(
+                    format_real_queue_alert(store, product, url),
+                    channel="restocks",
+                )
 
-                    send_discord_alert(
-                        format_predrop_warning(store, product, url),
-                        channel="restocks",
-                    )
-
-                    send_discord_alert(
-                        format_real_queue_alert(store, product, url),
-                        channel="restocks",
-                    )
-            else:
-                if can_alert(url, "WEAK_QUEUE"):
-                    print(f"🔵 Weak queue signal: {store} - {product}")
-                    send_discord_alert(
-                        format_weak_queue_alert(store, product, url),
-                        channel="monitor",
-                    )
+        # Weak queue = monitor only
+        if status == "WEAK_QUEUE":
+            if can_alert(url, "WEAK_QUEUE"):
+                print(f"⚠️ WEAK QUEUE SIGNAL: {store} - {product}")
+                send_discord_alert(
+                    format_predrop_warning(store, product, url),
+                    channel="monitor",
+                )
 
         current_signal = get_stock_signal(text)
         previous_signal = last_page_content.get(url, "")
