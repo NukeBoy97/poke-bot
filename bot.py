@@ -136,11 +136,9 @@ def check_stock(url, text):
     if "target.com" in url_lower and is_target_traffic_spike(text):
         return "TARGET_TRAFFIC_SPIKE"
 
-    # REAL queue only
     if has_real_queue_access(text):
         return "REAL_QUEUE"
 
-    # Weak queue/high traffic signal only
     if has_weak_queue_signal(text):
         return "WEAK_QUEUE"
 
@@ -162,7 +160,6 @@ def check_stock(url, text):
         "temporarily unavailable",
         "not available",
         "unavailable",
-        "coming soon",
         "notify me when available",
         "this item is not available",
         "item is unavailable",
@@ -189,21 +186,25 @@ def check_stock(url, text):
         return "OUT_OF_STOCK"
 
     if "pokemoncenter.com" in url_lower:
-        if (
-            "out of stock" in text
-            or "sold out" in text
-            or "unavailable" in text
-            or "not available" in text
-            or "notify me" in text
-        ):
+        pc_out_words = [
+            "out of stock",
+            "sold out",
+            "unavailable",
+            "not available",
+            "notify me",
+        ]
+
+        if any(word in text for word in pc_out_words):
             return "OUT_OF_STOCK"
 
-        if (
-            "add to cart" in text
-            or "add to bag" in text
-            or "addtocart" in text
-            or "add-to-cart" in text
-        ):
+        pc_in_words = [
+            "add to cart",
+            "add to bag",
+            "addtocart",
+            "add-to-cart",
+        ]
+
+        if any(word in text for word in pc_in_words):
             return "IN_STOCK"
 
         if "coming soon" in text:
@@ -220,8 +221,10 @@ def check_stock(url, text):
 def get_stock_signal(text):
     keywords = [
         "add to cart",
+        "add to bag",
         "out of stock",
         "sold out",
+        "coming soon",
         "ship it",
         "pickup",
         "available",
@@ -272,7 +275,7 @@ def get_price_range(product):
     if "booster bundle" in p:
         return 26, 32
 
-    if "pc etb" in p or "pokemon center elite trainer" in p:
+    if "pc etb" in p or "pokemon center elite trainer" in p or "pokémon center etb" in p:
         return 60, 75
 
     if "etb" in p or "elite trainer" in p:
@@ -431,7 +434,6 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Target traffic = monitor only
         if status == "TARGET_TRAFFIC_SPIKE":
             if can_alert(url, "TARGET_TRAFFIC_SPIKE"):
                 print(f"🎯 TARGET TRAFFIC SPIKE: {store} - {product}")
@@ -440,7 +442,6 @@ while True:
                     channel="monitor",
                 )
 
-        # Real queue = restock alert
         if status == "REAL_QUEUE":
             if can_alert(url, "REAL_QUEUE"):
                 print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
@@ -449,7 +450,6 @@ while True:
                     channel="restocks",
                 )
 
-        # Weak queue = monitor only
         if status == "WEAK_QUEUE":
             if can_alert(url, "WEAK_QUEUE"):
                 print(f"⚠️ WEAK QUEUE SIGNAL: {store} - {product}")
@@ -472,7 +472,6 @@ while True:
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
 
-        # Stable confirmed in-stock alert
         if status == "IN_STOCK":
             stable_counts[url] = stable_counts.get(url, 0) + 1
 
