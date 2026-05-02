@@ -24,6 +24,7 @@ previous_status = {}
 alerted_urls = {}
 
 CACHE_FILE = "page_cache.json"
+CHECK_INTERVAL_SECONDS = 15
 
 
 def load_page_cache():
@@ -62,9 +63,28 @@ def send_discord_alert(message, channel="restocks"):
 
 
 def get_page_text(url):
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
     response = requests.get(url, headers=headers, timeout=8)
     return response.text.lower()
+
+
+def is_target_traffic_spike(text):
+    traffic_words = [
+        "a little busier than we expected",
+        "busier than we expected",
+        "try again soon",
+        "something went wrong",
+        "please try again",
+        "cart is unavailable",
+        "unable to add to cart",
+        "high traffic",
+        "too much traffic",
+    ]
+
+    return any(word in text for word in traffic_words)
 
 
 def is_real_queue(text):
@@ -94,6 +114,9 @@ def is_real_queue(text):
 
 def check_stock(url, text):
     url_lower = url.lower()
+
+    if "target.com" in url_lower and is_target_traffic_spike(text):
+        return "TARGET_TRAFFIC_SPIKE"
 
     queue_words = [
         "queue",
@@ -134,16 +157,27 @@ def check_stock(url, text):
         "notify me when available",
         "this item is not available",
         "item is unavailable",
-        "not sold in stores",
         "no longer available",
     ]
 
     if any(word in text for word in out_stock_words):
         return "OUT_OF_STOCK"
 
+    # Stronger Target detection
     if "target.com" in url_lower:
-        if "add to cart" in text and "ship it" in text:
+        target_stock_words = [
+            "add to cart",
+            "ship it",
+            "in stock",
+            "delivery",
+            "pickup",
+            "available to ship",
+            "ready within",
+        ]
+
+        if any(word in text for word in target_stock_words):
             return "IN_STOCK"
+
         return "OUT_OF_STOCK"
 
     if "pokemoncenter.com" in url_lower:
@@ -189,10 +223,15 @@ def get_stock_signal(text):
         "ship it",
         "pickup",
         "available",
+        "delivery",
+        "in stock",
         "queue",
         "waiting room",
         "high traffic",
         "sign in to join the line",
+        "busier than we expected",
+        "try again soon",
+        "unable to add to cart",
     ]
 
     found = []
@@ -271,6 +310,19 @@ def format_restock_alert(store, product, status, price_status, url):
         f"━━━━━━━━━━━━━━━━━━\n\n"
         f"🔗 **Buy Link:**\n{url}\n\n"
         f"⚠️ Be signed in and checkout manually."
+    )
+
+
+def format_target_traffic_alert(store, product, url):
+    return (
+        f"🎯 **TARGET TRAFFIC SPIKE DETECTED**\n\n"
+        f"🏪 **Store:** {store}\n"
+        f"📦 **Product:** {product}\n"
+        f"📊 **Signal:** Target traffic/cart error detected\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"🚨 **Action:** Stay on page and keep trying.\n"
+        f"Target may be getting hammered during a real drop.\n\n"
+        f"🔗 **Link:**\n{url}"
     )
 
 
@@ -354,9 +406,17 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Queue system:
-        # Strong/real queue → #restock-alerts
-        # Weak/unconfirmed queue → #monitor-feed
+        # Target traffic spike alert
+        if status == "TARGET_TRAFFIC_SPIKE":
+            if alerted_urls.get(url) != "TARGET_TRAFFIC_SPIKE":
+                print(f"🎯 TARGET TRAFFIC SPIKE: {store} - {product}")
+                send_discord_alert(
+                    format_target_traffic_alert(store, product, url),
+                    channel="restocks",
+                )
+                alerted_urls[url] = "TARGET_TRAFFIC_SPIKE"
+
+        # Queue system
         if status == "QUEUE_DETECTED":
             if alerted_urls.get(url) != "QUEUE":
                 if is_real_queue(text):
@@ -395,7 +455,7 @@ while True:
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
 
-        # Clean restock alert only for direct product pages
+        # Clean restock alert
         if url in previous_status:
             if previous_status[url] == "OUT_OF_STOCK" and status == "IN_STOCK":
                 if "OVERPRICED" not in price_status:
@@ -420,5 +480,5 @@ while True:
 
         print(f"{store} - {product}: {status} | {price_status}")
 
-    print("Cycle complete. Waiting 30 seconds...\n")
-    time.sleep(30)
+    print(f"Cycle complete. Waiting {CHECK_INTERVAL_SECONDS} seconds...\n")
+    time.sleep(CHECK_INTERVAL_SECONDS)
