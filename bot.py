@@ -131,11 +131,8 @@ def has_real_queue_access(text):
 
 def has_weak_queue_signal(text):
     weak_words = [
-        "queue",
         "high traffic",
         "traffic is high",
-        "please wait",
-        "traffic",
     ]
     return any(word in text for word in weak_words)
 
@@ -411,11 +408,11 @@ def format_possible_queue_alert(store, product, url):
 
 def format_weak_queue_alert(store, product, url):
     return (
-        f"⚠️ **Monitor Feed | Weak Queue / Traffic Signal**\n\n"
+        f"⚠️ **Monitor Feed | Weak Traffic Signal**\n\n"
         f"🏪 **Store:** {store}\n"
         f"📦 **Product:** {product}\n\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"Weak queue/high traffic signal detected.\n"
+        f"High traffic signal detected.\n"
         f"This is NOT confirmed queue access yet.\n\n"
         f"🔗 **Link:**\n{url}"
     )
@@ -462,7 +459,6 @@ while True:
         with open("restock_log.csv", "a", encoding="utf-8") as f:
             f.write(f"{date},{time_now},{store},{product},{status},{price_status},{url}\n")
 
-        # Traffic spike = monitor only, and only when status changes into traffic spike
         if status == "TARGET_TRAFFIC_SPIKE":
             if previous_status.get(url) != "TARGET_TRAFFIC_SPIKE":
                 if can_alert(url, "TARGET_TRAFFIC_SPIKE"):
@@ -472,7 +468,6 @@ while True:
                         channel="monitor",
                     )
 
-        # Real queue = restock channel only
         if status == "REAL_QUEUE":
             if previous_status.get(url) != "REAL_QUEUE":
                 if can_alert(url, "REAL_QUEUE"):
@@ -482,7 +477,6 @@ while True:
                         channel="restocks",
                     )
 
-        # Possible queue = monitor only
         if status == "POSSIBLE_QUEUE":
             if previous_status.get(url) != "POSSIBLE_QUEUE":
                 if can_alert(url, "POSSIBLE_QUEUE"):
@@ -492,31 +486,22 @@ while True:
                         channel="monitor",
                     )
 
-        # Weak queue = monitor only
         if status == "WEAK_QUEUE":
             if previous_status.get(url) != "WEAK_QUEUE":
                 if can_alert(url, "WEAK_QUEUE"):
-                    print(f"⚠️ WEAK QUEUE SIGNAL: {store} - {product}")
+                    print(f"⚠️ WEAK TRAFFIC SIGNAL: {store} - {product}")
                     send_discord_alert(
                         format_weak_queue_alert(store, product, url),
                         channel="monitor",
                     )
 
         current_signal = get_stock_signal(text)
-        previous_signal = last_page_content.get(url, "")
-
-        if previous_signal and current_signal != previous_signal:
-            print(f"⚡ SIGNAL CHANGED: {store} - {product}")
-            if can_alert(url, "SIGNAL_CHANGE"):
-                send_discord_alert(
-                    format_monitor_alert(store, product, previous_signal, current_signal, url),
-                    channel="monitor",
-                )
-
         last_page_content[url] = current_signal
         save_page_cache(last_page_content)
 
-        # Stable confirmed in-stock alert
+        # Signal change alerts are intentionally DISABLED to stop monitor-feed spam.
+        # We still save current_signal to page_cache.json for future pattern tracking.
+
         if status == "IN_STOCK":
             stable_counts[url] = stable_counts.get(url, 0) + 1
 
