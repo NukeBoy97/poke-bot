@@ -133,6 +133,8 @@ def has_weak_queue_signal(text):
     weak_words = [
         "high traffic",
         "traffic is high",
+        "sign in to join the line",
+        "join the line",
     ]
     return any(word in text for word in weak_words)
 
