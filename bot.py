@@ -488,22 +488,22 @@ while True:
                         channel="monitor",
                     )
 
-       if status == "WEAK_QUEUE":
-           weak_queue_hits[url] = weak_queue_hits.get(url, 0) + 1
-           if weak_queue_hits[url] >= WEAK_QUEUE_MIN_HITS:
-               if previous_status.get(url) != "WEAK_QUEUE":
-               key = f"{url}_WEAK_QUEUE"
-               now = time.time()
-               last = cooldowns.get(key, 0)
-               if now - last >= WEAK_QUEUE_COOLDOWN:
-                  cooldowns[key] = now
-                  print(f"⚠️ WEAK TRAFFIC SIGNAL: {store} - {product}")
-                  send_discord_alert(
-                      format_weak_queue_alert(store, product, url),
-                      channel="monitor",
-                  )
-          else:
-              weak_queue_hits[url] = 0
+if status == "WEAK_QUEUE":
+            weak_queue_hits[url] = weak_queue_hits.get(url, 0) + 1
+            if weak_queue_hits[url] >= WEAK_QUEUE_MIN_HITS:
+                if previous_status.get(url) != "WEAK_QUEUE":
+                    key = f"{url}_WEAK_QUEUE"
+                    now = time.time()
+                    last = cooldowns.get(key, 0)
+                    if now - last >= WEAK_QUEUE_COOLDOWN:
+                        cooldowns[key] = now
+                        print(f"⚠️ WEAK TRAFFIC SIGNAL: {store} - {product}")
+                        send_discord_alert(
+                            format_weak_queue_alert(store, product, url),
+                            channel="monitor",
+                        )
+        else:
+            weak_queue_hits[url] = 0
 
         current_signal = get_stock_signal(text)
         last_page_content[url] = current_signal
