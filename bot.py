@@ -488,7 +488,7 @@ while True:
                         channel="monitor",
                     )
 
-        if status == "WEAK_QUEUE":
+ if status == "WEAK_QUEUE":
     weak_queue_hits[url] = weak_queue_hits.get(url, 0) + 1
     if weak_queue_hits[url] >= WEAK_QUEUE_MIN_HITS:
         if previous_status.get(url) != "WEAK_QUEUE":
