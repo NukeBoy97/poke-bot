@@ -509,6 +509,12 @@ for _, row in products.iterrows():
         status = check_stock(url, text)
         prices = extract_prices(text)
         price_status = classify_price(product, prices)
+
+        # DEBUG — remove after one cycle
+        if "walmart" in url.lower() and "search" not in url.lower():
+            print(f"WALMART DEBUG: {text[:500]}")
+        if "target" in url.lower() and "ascended heroes booster bundle" in product.lower():
+            print(f"TARGET DEBUG: {text[:500]}")
     except Exception as e:
         print(f"Error checking {store} - {product}: {e}")
         text = ""
