@@ -502,7 +502,7 @@ while True:
                     format_weak_queue_alert(store, product, url),
                     channel="monitor",
                 )
-else:
+ else:
     weak_queue_hits[url] = 0
 
         current_signal = get_stock_signal(text)
