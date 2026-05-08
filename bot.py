@@ -24,11 +24,14 @@ products = pd.read_csv("products.csv")
 previous_status = {}
 cooldowns = {}
 stable_counts = {}
+weak_queue_hits = {}
 
 CACHE_FILE = "page_cache.json"
 CHECK_INTERVAL_SECONDS = 12
 COOLDOWN_SECONDS = 120
 REQUIRED_STABLE_CHECKS = 2
+WEAK_QUEUE_COOLDOWN = 600
+WEAK_QUEUE_MIN_HITS = 2
 
 
 def can_alert(url, alert_type):
@@ -115,16 +118,8 @@ def has_real_queue_access(text):
         "queue-it",
     ]
 
-    mid_signals = [
-        "sign in to join the line",
-        "join the line",
-    ]
-
     if any(signal in text for signal in strong_signals):
         return "STRONG"
-
-    if any(signal in text for signal in mid_signals):
-        return "MID"
 
     return None
 
@@ -142,6 +137,9 @@ def has_weak_queue_signal(text):
 def check_stock(url, text):
     url_lower = url.lower()
 
+    if "queue-it.net" in url_lower or "queueit" in url_lower:
+        return "REAL_QUEUE"
+
     if "target.com" in url_lower and is_target_traffic_spike(text):
         return "TARGET_TRAFFIC_SPIKE"
 
@@ -149,9 +147,6 @@ def check_stock(url, text):
 
     if queue_signal == "STRONG":
         return "REAL_QUEUE"
-
-    if queue_signal == "MID":
-        return "POSSIBLE_QUEUE"
 
     if has_weak_queue_signal(text):
         return "WEAK_QUEUE"
@@ -488,7 +483,7 @@ while True:
                         channel="monitor",
                     )
 
-if status == "WEAK_QUEUE":
+        if status == "WEAK_QUEUE":
             weak_queue_hits[url] = weak_queue_hits.get(url, 0) + 1
             if weak_queue_hits[url] >= WEAK_QUEUE_MIN_HITS:
                 if previous_status.get(url) != "WEAK_QUEUE":
