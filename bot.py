@@ -8,7 +8,7 @@ from collections import Counter
 from dotenv import load_dotenv
 from datetime import datetime
 
-print(“🚨 BOT STARTING”)
+print(“BOT STARTING”)
 
 load_dotenv(”.env”)
 
@@ -37,18 +37,13 @@ WEAK_QUEUE_MIN_HITS = 2
 def can_alert(url, alert_type):
 now = time.time()
 key = f”{url}_{alert_type}”
-
-```
 if key not in cooldowns:
-    cooldowns[key] = now
-    return True
-
+cooldowns[key] = now
+return True
 if now - cooldowns[key] >= COOLDOWN_SECONDS:
-    cooldowns[key] = now
-    return True
-
+cooldowns[key] = now
+return True
 return False
-```
 
 def load_page_cache():
 try:
@@ -66,62 +61,53 @@ last_page_content = load_page_cache()
 def send_discord_alert(message, channel=“restocks”):
 try:
 webhook = WEBHOOK_RESTOCKS
-
-```
-    if channel == "monitor":
-        webhook = WEBHOOK_MONITOR
-    elif channel == "logs":
-        webhook = WEBHOOK_LOGS
-
-    if webhook:
-        response = requests.post(webhook, json={"content": message}, timeout=8)
-        print(f"Discord {channel} response:", response.status_code)
-    else:
-        print(f"Discord webhook missing for {channel}")
-
+if channel == “monitor”:
+webhook = WEBHOOK_MONITOR
+elif channel == “logs”:
+webhook = WEBHOOK_LOGS
+if webhook:
+response = requests.post(webhook, json={“content”: message}, timeout=8)
+print(f”Discord {channel} response:”, response.status_code)
+else:
+print(f”Discord webhook missing for {channel}”)
 except Exception as e:
-    print(f"Discord error: {e}")
-```
+print(f”Discord error: {e}”)
 
 def get_page_text(url):
 url_lower = url.lower()
-
-```
-if "walmart.com" in url_lower:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Cache-Control": "max-age=0",
-    }
-elif "pokemoncenter.com" in url_lower:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-    }
+if “walmart.com” in url_lower:
+headers = {
+“User-Agent”: “Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36”,
+“Accept”: “text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8”,
+“Accept-Language”: “en-US,en;q=0.9”,
+“Accept-Encoding”: “gzip, deflate, br”,
+“Connection”: “keep-alive”,
+“Upgrade-Insecure-Requests”: “1”,
+“Sec-Fetch-Dest”: “document”,
+“Sec-Fetch-Mode”: “navigate”,
+“Sec-Fetch-Site”: “none”,
+“Sec-Fetch-User”: “?1”,
+“Cache-Control”: “max-age=0”,
+}
+elif “pokemoncenter.com” in url_lower:
+headers = {
+“User-Agent”: “Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36”,
+“Accept”: “text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8”,
+“Accept-Language”: “en-US,en;q=0.9”,
+“Accept-Encoding”: “gzip, deflate, br”,
+“Connection”: “keep-alive”,
+“Upgrade-Insecure-Requests”: “1”,
+}
 else:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-    }
-
+headers = {
+“User-Agent”: “Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36”,
+“Accept”: “text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8”,
+“Accept-Language”: “en-US,en;q=0.9”,
+“Accept-Encoding”: “gzip, deflate, br”,
+“Connection”: “keep-alive”,
+}
 response = requests.get(url, headers=headers, timeout=10)
 return response.text.lower()
-```
 
 def is_target_traffic_spike(text):
 traffic_words = [
@@ -146,13 +132,9 @@ strong_signals = [
 “line is paused”,
 “queue-it”,
 ]
-
-```
 if any(signal in text for signal in strong_signals):
-    return "STRONG"
-
+return “STRONG”
 return None
-```
 
 def has_weak_queue_signal(text):
 weak_words = [
@@ -174,7 +156,6 @@ if "target.com" in url_lower and is_target_traffic_spike(text):
     return "TARGET_TRAFFIC_SPIKE"
 
 queue_signal = has_real_queue_access(text)
-
 if queue_signal == "STRONG":
     return "REAL_QUEUE"
 
@@ -188,7 +169,6 @@ search_page_words = [
     "/s?keyword=",
     "search?q=",
 ]
-
 if any(word in url_lower for word in search_page_words):
     return "SEARCH_PAGE_CHECK"
 
@@ -204,7 +184,6 @@ out_stock_words = [
     "item is unavailable",
     "no longer available",
 ]
-
 if any(word in text for word in out_stock_words):
     return "OUT_OF_STOCK"
 
@@ -218,10 +197,8 @@ if "target.com" in url_lower:
         "available to ship",
         "ready within",
     ]
-
     if any(word in text for word in target_stock_words):
         return "IN_STOCK"
-
     return "OUT_OF_STOCK"
 
 if "walmart.com" in url_lower:
@@ -233,20 +210,16 @@ if "walmart.com" in url_lower:
         "notify me",
         "get in-stock alert",
     ]
-
     if any(word in text for word in walmart_out_words):
         return "OUT_OF_STOCK"
-
     walmart_in_words = [
         "add to cart",
         "add to registry",
         "checkout",
         "buy now",
     ]
-
     if any(word in text for word in walmart_in_words):
         return "IN_STOCK"
-
     return "UNKNOWN"
 
 if "pokemoncenter.com" in url_lower:
@@ -257,23 +230,18 @@ if "pokemoncenter.com" in url_lower:
         "not available",
         "notify me",
     ]
-
     if any(word in text for word in pc_out_words):
         return "OUT_OF_STOCK"
-
     pc_in_words = [
         "add to cart",
         "add to bag",
         "addtocart",
         "add-to-cart",
     ]
-
     if any(word in text for word in pc_in_words):
         return "IN_STOCK"
-
     if "coming soon" in text:
         return "COMING_SOON"
-
     return "UNKNOWN"
 
 if "add to cart" in text or "add to bag" in text:
@@ -302,195 +270,155 @@ keywords = [
 “try again soon”,
 “unable to add to cart”,
 ]
-
-```
 found = []
 for keyword in keywords:
-    if keyword in text:
-        found.append(keyword)
-
-return "|".join(found)
-```
+if keyword in text:
+found.append(keyword)
+return “|”.join(found)
 
 def clean_signal(signal):
 if not signal:
 return “No major signal detected”
-
-```
-parts = signal.split("|")
-return "\n".join([f"• {part.title()}" for part in parts if part.strip()])
-```
+parts = signal.split(”|”)
+return “\n”.join([f”- {part.title()}” for part in parts if part.strip()])
 
 def extract_prices(text):
 prices = re.findall(r”$\d+(?:.\d{2})?”, text)
 clean_prices = []
-
-```
 for price in prices:
-    try:
-        number = float(price.replace("$", ""))
-        # Ignore junk prices outside realistic product range
-        if number < 1 or number > 300:
-            continue
-        clean_prices.append(number)
-    except:
-        pass
-
-# Filter out prices that repeat 5+ times — these are page layout elements not product prices
+try:
+number = float(price.replace(”$”, “”))
+if number < 1 or number > 300:
+continue
+clean_prices.append(number)
+except:
+pass
 if clean_prices:
-    counts = Counter(clean_prices)
-    dominant = [p for p, c in counts.items() if c >= 5]
-    clean_prices = [p for p in clean_prices if p not in dominant]
-
+counts = Counter(clean_prices)
+dominant = [p for p, c in counts.items() if c >= 5]
+clean_prices = [p for p in clean_prices if p not in dominant]
 return clean_prices
-```
 
 def get_price_range(product):
 p = product.lower()
-
-```
-if "booster bundle" in p:
-    return 26, 32
-
-if "pc etb" in p or "pokemon center elite trainer" in p or "pokémon center etb" in p:
-    return 60, 75
-
-if "etb" in p or "elite trainer" in p:
-    return 45, 65
-
-if "mini tin" in p:
-    return 8, 13
-
-if "tin" in p:
-    return 18, 30
-
-if "3-pack blister" in p:
-    return 12, 18
-
-if "2-pack blister" in p:
-    return 9, 14
-
-if "single blister" in p or "sleeved booster" in p or "booster pack" in p:
-    return 4, 8
-
-if "ex box" in p:
-    return 18, 30
-
-if "premium collection" in p or "poster collection" in p:
-    return 35, 65
-
-if "sticker" in p:
-    return 10, 18
-
-if "deluxe pin" in p or "pin collection" in p:
-    return 20, 35
-
-if "collection" in p or "box" in p:
-    return 18, 50
-
+if “booster bundle” in p:
+return 26, 32
+if “pc etb” in p or “pokemon center elite trainer” in p or “pokémon center etb” in p:
+return 60, 75
+if “etb” in p or “elite trainer” in p:
+return 45, 65
+if “mini tin” in p:
+return 8, 13
+if “tin” in p:
+return 18, 30
+if “3-pack blister” in p:
+return 12, 18
+if “2-pack blister” in p:
+return 9, 14
+if “single blister” in p or “sleeved booster” in p or “booster pack” in p:
+return 4, 8
+if “ex box” in p:
+return 18, 30
+if “premium collection” in p or “poster collection” in p:
+return 35, 65
+if “sticker” in p:
+return 10, 18
+if “deluxe pin” in p or “pin collection” in p:
+return 20, 35
+if “collection” in p or “box” in p:
+return 18, 50
 return None, None
-```
 
 def classify_price(product, prices):
 if not prices:
 return “UNKNOWN_PRICE”
-
-```
 low, high = get_price_range(product)
-
 if low is None:
-    lowest_price = min(prices)
-    return f"PRICE_FOUND (${lowest_price})"
-
-matching_prices = [p for p in prices if low <= p <= high]
-
-if matching_prices:
-    best_price = min(matching_prices)
-    return f"MSRP_OR_CLOSE (${best_price})"
-
 lowest_price = min(prices)
-
+return f”PRICE_FOUND (${lowest_price})”
+matching_prices = [p for p in prices if low <= p <= high]
+if matching_prices:
+best_price = min(matching_prices)
+return f”MSRP_OR_CLOSE (${best_price})”
+lowest_price = min(prices)
 if lowest_price > high:
-    return f"OVERPRICED (${lowest_price})"
-
+return f”OVERPRICED (${lowest_price})”
 if lowest_price < low:
-    return f"PRICE_SUSPICIOUS (${lowest_price})"
-
-return f"PRICE_SUSPICIOUS (${lowest_price})"
-```
+return f”PRICE_SUSPICIOUS (${lowest_price})”
+return f”PRICE_SUSPICIOUS (${lowest_price})”
 
 def is_good_price(price_status):
 return “MSRP_OR_CLOSE” in price_status
 
 def format_restock_alert(store, product, status, price_status, url):
 return (
-f”🔥 **PokéPulse-Alerts | ITEM LIVE**\n\n”
-f”🏪 **Store:** {store}\n”
-f”📦 **Product:** {product}\n”
-f”📊 **Status:** {status}\n”
-f”💰 **Price:** {price_status}\n\n”
-f”━━━━━━━━━━━━━━━━━━\n\n”
-f”🔗 **Buy Link:**\n{url}\n\n”
-f”⚠️ Be signed in and checkout manually.”
+“POKEPULSE ALERT - ITEM LIVE\n\n”
+f”Store: {store}\n”
+f”Product: {product}\n”
+f”Status: {status}\n”
+f”Price: {price_status}\n\n”
+“==================\n\n”
+f”Buy Link:\n{url}\n\n”
+“Be signed in and checkout manually.”
 )
 
 def format_target_traffic_alert(store, product, price_status, url):
 return (
-f”🎯 **Monitor Feed | Target Traffic Spike**\n\n”
-f”🏪 **Store:** {store}\n”
-f”📦 **Product:** {product}\n”
-f”💰 **Price Check:** {price_status}\n\n”
-f”━━━━━━━━━━━━━━━━━━\n\n”
-f”Traffic/cart error detected.\n”
-f”This is useful data, but not a confirmed drop.\n\n”
-f”🔗 **Link:**\n{url}”
+“Monitor Feed - Target Traffic Spike\n\n”
+f”Store: {store}\n”
+f”Product: {product}\n”
+f”Price Check: {price_status}\n\n”
+“==================\n\n”
+“Traffic/cart error detected.\n”
+“This is useful data, but not a confirmed drop.\n\n”
+f”Link:\n{url}”
 )
 
 def format_real_queue_alert(store, product, url):
 return (
-f”🚨 **REAL QUEUE LIVE — ENTER NOW**\n\n”
-f”🏪 **Store:** {store}\n”
-f”📦 **Product:** {product}\n”
-f”⏳ **Status:** Strong queue access detected\n\n”
-f”━━━━━━━━━━━━━━━━━━\n\n”
-f”👉 **Join immediately:**\n{url}\n\n”
-f”⚠️ Be signed in already.\n”
-f”⚠️ Do not refresh if you enter the line.”
+“REAL QUEUE LIVE - ENTER NOW\n\n”
+f”Store: {store}\n”
+f”Product: {product}\n”
+“Status: Strong queue access detected\n\n”
+“==================\n\n”
+f”Join immediately:\n{url}\n\n”
+“Be signed in already.\n”
+“Do not refresh if you enter the line.”
 )
 
 def format_possible_queue_alert(store, product, url):
 return (
-f”🟡 **Monitor Feed | Possible Queue**\n\n”
-f”🏪 **Store:** {store}\n”
-f”📦 **Product:** {product}\n\n”
-f”━━━━━━━━━━━━━━━━━━\n\n”
-f”Possible queue wording detected.\n”
-f”This is NOT fully confirmed yet.\n”
-f”Stay ready, but this is monitor-feed only.\n\n”
-f”🔗 **Link:**\n{url}”
+“Monitor Feed - Possible Queue\n\n”
+f”Store: {store}\n”
+f”Product: {product}\n\n”
+“==================\n\n”
+“Possible queue wording detected.\n”
+“This is NOT fully confirmed yet.\n”
+“Stay ready, but this is monitor-feed only.\n\n”
+f”Link:\n{url}”
 )
 
 def format_weak_queue_alert(store, product, url):
 return (
-f”⚠️ **Monitor Feed | Weak Traffic Signal**\n\n”
-f”🏪 **Store:** {store}\n”
-f”📦 **Product:** {product}\n\n”
-f”━━━━━━━━━━━━━━━━━━\n\n”
-f”High traffic signal detected.\n”
-f”This is NOT confirmed queue access yet.\n\n”
-f”🔗 **Link:**\n{url}”
+“Monitor Feed - Weak Traffic Signal\n\n”
+f”Store: {store}\n”
+f”Product: {product}\n\n”
+“==================\n\n”
+“High traffic signal detected.\n”
+“This is NOT confirmed queue access yet.\n\n”
+f”Link:\n{url}”
 )
 
 def format_monitor_alert(store, product, old_signal, new_signal, url):
 return (
-f”🔵 **PokéPulse Monitor Feed | Signal Change**\n\n”
-f”🏪 **Store:** {store}\n”
-f”📦 **Product/Search:** {product}\n\n”
-f”━━━━━━━━━━━━━━━━━━\n\n”
-f”**Previous Signals:**\n{clean_signal(old_signal)}\n\n”
-f”**Current Signals:**\n{clean_signal(new_signal)}\n\n”
-f”🔗 **Link:**\n{url}\n\n”
-f”ℹ️ Useful for pattern tracking, not always actionable.”
+“PokePulse Monitor Feed - Signal Change\n\n”
+f”Store: {store}\n”
+f”Product/Search: {product}\n\n”
+“==================\n\n”
+f”Previous Signals:\n{clean_signal(old_signal)}\n\n”
+f”Current Signals:\n{clean_signal(new_signal)}\n\n”
+f”Link:\n{url}\n\n”
+“Useful for pattern tracking, not always actionable.”
 )
 
 while True:
@@ -525,7 +453,7 @@ for _, row in products.iterrows():
     if status == "TARGET_TRAFFIC_SPIKE":
         if previous_status.get(url) != "TARGET_TRAFFIC_SPIKE":
             if can_alert(url, "TARGET_TRAFFIC_SPIKE"):
-                print(f"🎯 TARGET TRAFFIC SPIKE: {store} - {product}")
+                print(f"TARGET TRAFFIC SPIKE: {store} - {product}")
                 send_discord_alert(
                     format_target_traffic_alert(store, product, price_status, url),
                     channel="monitor",
@@ -534,7 +462,7 @@ for _, row in products.iterrows():
     if status == "REAL_QUEUE":
         if previous_status.get(url) != "REAL_QUEUE":
             if can_alert(url, "REAL_QUEUE"):
-                print(f"🚨 REAL QUEUE CONFIRMED: {store} - {product}")
+                print(f"REAL QUEUE CONFIRMED: {store} - {product}")
                 send_discord_alert(
                     format_real_queue_alert(store, product, url),
                     channel="restocks",
@@ -543,7 +471,7 @@ for _, row in products.iterrows():
     if status == "POSSIBLE_QUEUE":
         if previous_status.get(url) != "POSSIBLE_QUEUE":
             if can_alert(url, "POSSIBLE_QUEUE"):
-                print(f"🟡 POSSIBLE QUEUE: {store} - {product}")
+                print(f"POSSIBLE QUEUE: {store} - {product}")
                 send_discord_alert(
                     format_possible_queue_alert(store, product, url),
                     channel="monitor",
@@ -558,7 +486,7 @@ for _, row in products.iterrows():
                 last = cooldowns.get(key, 0)
                 if now - last >= WEAK_QUEUE_COOLDOWN:
                     cooldowns[key] = now
-                    print(f"⚠️ WEAK TRAFFIC SIGNAL: {store} - {product}")
+                    print(f"WEAK TRAFFIC SIGNAL: {store} - {product}")
                     send_discord_alert(
                         format_weak_queue_alert(store, product, url),
                         channel="monitor",
@@ -570,12 +498,8 @@ for _, row in products.iterrows():
     last_page_content[url] = current_signal
     save_page_cache(last_page_content)
 
-    # Signal change alerts are intentionally DISABLED to stop monitor-feed spam.
-    # We still save current_signal to page_cache.json for future pattern tracking.
-
     if status == "IN_STOCK":
         stable_counts[url] = stable_counts.get(url, 0) + 1
-
         if stable_counts[url] >= REQUIRED_STABLE_CHECKS:
             if previous_status.get(url) != "IN_STOCK":
                 if is_good_price(price_status):
@@ -584,26 +508,25 @@ for _, row in products.iterrows():
                             format_restock_alert(store, product, status, price_status, url),
                             channel="restocks",
                         )
-
                         send_discord_alert(
-                            f"🧾 **Drop Logged**\n\n"
-                            f"🏪 Store: {store}\n"
-                            f"📦 Product: {product}\n"
-                            f"💰 Price: {price_status}\n"
-                            f"🕒 Time: {date} {time_now}\n"
-                            f"🔗 Link: {url}",
+                            f"Drop Logged\n\n"
+                            f"Store: {store}\n"
+                            f"Product: {product}\n"
+                            f"Price: {price_status}\n"
+                            f"Time: {date} {time_now}\n"
+                            f"Link: {url}",
                             channel="logs",
                         )
                 elif "OVERPRICED" in price_status:
                     if can_alert(url, "IN_STOCK_OVERPRICED"):
                         send_discord_alert(
-                            f"📋 **Stock detected (overpriced)**\n\n"
-                            f"🏪 Store: {store}\n"
-                            f"📦 Product: {product}\n"
-                            f"💰 Price: {price_status}\n"
-                            f"🕒 Time: {date} {time_now}\n"
-                            f"🔗 Link: {url}\n\n"
-                            f"ℹ️ Not alerted in #restocks — price above MSRP range.",
+                            f"Stock detected (overpriced)\n\n"
+                            f"Store: {store}\n"
+                            f"Product: {product}\n"
+                            f"Price: {price_status}\n"
+                            f"Time: {date} {time_now}\n"
+                            f"Link: {url}\n\n"
+                            f"Not alerted in restocks - price above MSRP range.",
                             channel="logs",
                         )
     else:
@@ -613,6 +536,6 @@ for _, row in products.iterrows():
 
     print(f"{store} - {product}: {status} | {price_status}")
 
-print(f"Cycle complete. Waiting {CHECK_INTERVAL_SECONDS} seconds...\n")
+print(f"Cycle complete. Waiting {CHECK_INTERVAL_SECONDS} seconds...")
 time.sleep(CHECK_INTERVAL_SECONDS)
 ```
