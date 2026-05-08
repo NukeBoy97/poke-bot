@@ -8,7 +8,7 @@ from collections import Counter
 from dotenv import load_dotenv
 from datetime import datetime
 
-print('BOT STARTING')
+print(“BOT STARTING”)
 
 load_dotenv(”.env”)
 
@@ -303,7 +303,7 @@ def get_price_range(product):
 p = product.lower()
 if “booster bundle” in p:
 return 26, 32
-if “pc etb” in p or “pokemon center elite trainer” in p or “pokémon center etb” in p:
+if “pc etb” in p or “pokemon center elite trainer” in p or “pokemon center etb” in p:
 return 60, 75
 if “etb” in p or “elite trainer” in p:
 return 45, 65
