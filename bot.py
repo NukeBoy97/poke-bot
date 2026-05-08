@@ -29,7 +29,7 @@ weak_queue_hits = {}
 CACHE_FILE = "page_cache.json"
 CHECK_INTERVAL_SECONDS = 12
 COOLDOWN_SECONDS = 120
-REQUIRED_STABLE_CHECKS = 2
+REQUIRED_STABLE_CHECKS = 3
 WEAK_QUEUE_COOLDOWN = 600
 WEAK_QUEUE_MIN_HITS = 2
 
@@ -526,6 +526,18 @@ while True:
                                 f"💰 Price: {price_status}\n"
                                 f"🕒 Time: {date} {time_now}\n"
                                 f"🔗 Link: {url}",
+                                channel="logs",
+                            )
+                    elif "OVERPRICED" in price_status:
+                        if can_alert(url, "IN_STOCK_OVERPRICED"):
+                            send_discord_alert(
+                                f"📋 **Stock detected (overpriced)**\n\n"
+                                f"🏪 Store: {store}\n"
+                                f"📦 Product: {product}\n"
+                                f"💰 Price: {price_status}\n"
+                                f"🕒 Time: {date} {time_now}\n"
+                                f"🔗 Link: {url}\n\n"
+                                f"ℹ️ Not alerted in #restocks — price above MSRP range.",
                                 channel="logs",
                             )
         else:
