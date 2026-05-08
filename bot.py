@@ -8,7 +8,7 @@ from collections import Counter
 from dotenv import load_dotenv
 from datetime import datetime
 
-print(“BOT STARTING”)
+print('BOT STARTING')
 
 load_dotenv(”.env”)
 
