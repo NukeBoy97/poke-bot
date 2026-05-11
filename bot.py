@@ -5,9 +5,11 @@ import json
 import requests
 from dotenv import load_dotenv
 from datetime import datetime
+import subprocess
 from playwright.sync_api import sync_playwright
 
 print('BOT STARTING')
+subprocess.run(['playwright', 'install', 'chromium'], check=True)
 
 load_dotenv('.env')
 
