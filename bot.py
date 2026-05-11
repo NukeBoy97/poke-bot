@@ -1,12 +1,11 @@
-import requests
 import pandas as pd
 import time
 import os
 import json
-import re
-from collections import Counter
+import requests
 from dotenv import load_dotenv
 from datetime import datetime
+from playwright.sync_api import sync_playwright
 
 print('BOT STARTING')
 
@@ -79,43 +78,14 @@ def send_discord_alert(message, channel='restocks'):
         print('Discord error:', e)
 
 
-def get_page_text(url):
-    url_lower = url.lower()
-    if 'walmart.com' in url_lower:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
-        }
-        time.sleep(2)
-    elif 'pokemoncenter.com' in url_lower:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-        }
-        time.sleep(2)
-    else:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-        }
-    response = requests.get(url, headers=headers, timeout=10)
-    return response.text.lower()
+def get_page_text(page, url):
+    try:
+        page.goto(url, timeout=20000, wait_until='domcontentloaded')
+        time.sleep(3)
+        return page.content().lower()
+    except Exception as e:
+        print('Page load error:', e)
+        return ''
 
 
 def is_target_traffic_spike(text):
@@ -203,10 +173,10 @@ def check_stock(url, text):
             'add to cart',
             'ship it',
             'in stock',
-            'delivery',
             'pickup',
             'available to ship',
             'ready within',
+            'pick up',
         ]
         if any(word in text for word in target_stock_words):
             return 'IN_STOCK'
@@ -288,13 +258,6 @@ def get_stock_signal(text):
     return '|'.join(found)
 
 
-def clean_signal(signal):
-    if not signal:
-        return 'No major signal detected'
-    parts = signal.split('|')
-    return '\n'.join(['- ' + part.title() for part in parts if part.strip()])
-
-
 def get_price_range(product):
     p = product.lower()
     if 'booster bundle' in p:
@@ -326,23 +289,18 @@ def get_price_range(product):
     return None, None
 
 
-def classify_price(product, url, status):
-    url_lower = url.lower()
-
-    # For Target - skip scraping, use product name to determine MSRP
-    if 'target.com' in url_lower and status == 'IN_STOCK':
-        low, high = get_price_range(product)
-        if low is not None:
-            mid = (low + high) / 2
-            return 'MSRP_ASSUMED ($' + str(mid) + ')'
-        return 'MSRP_UNKNOWN'
-
-    # For other stores - try to scrape price from page
-    return 'UNKNOWN_PRICE'
+def classify_price(product, status):
+    if status != 'IN_STOCK':
+        return 'N/A'
+    low, high = get_price_range(product)
+    if low is not None:
+        mid = (low + high) / 2
+        return 'MSRP_ASSUMED ($' + str(mid) + ')'
+    return 'MSRP_UNKNOWN'
 
 
 def is_good_price(price_status):
-    return 'MSRP_OR_CLOSE' in price_status or 'MSRP_ASSUMED' in price_status
+    return 'MSRP_ASSUMED' in price_status or 'MSRP_OR_CLOSE' in price_status
 
 
 def format_restock_alert(store, product, status, price_status, url):
@@ -408,105 +366,115 @@ def format_weak_queue_alert(store, product, url):
     )
 
 
-while True:
-    print('Starting check cycle...')
+with sync_playwright() as playwright:
+    browser = playwright.chromium.launch(headless=True)
+    context = browser.new_context(
+        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        viewport={'width': 1280, 'height': 800},
+    )
+    page = context.new_page()
 
-    for _, row in products.iterrows():
-        store = row['store']
-        product = row['product']
-        url = row['url']
+    while True:
+        print('Starting check cycle...')
 
-        print('Checking ' + store + ' - ' + product + '...')
+        for _, row in products.iterrows():
+            store = row['store']
+            product = row['product']
+            url = row['url']
 
-        try:
-            text = get_page_text(url)
-            status = check_stock(url, text)
-            price_status = classify_price(product, url, status)
-        except Exception as e:
-            print('Error checking ' + store + ' - ' + product + ':', e)
-            text = ''
-            status = 'ERROR'
-            price_status = 'UNKNOWN_PRICE'
+            print('Checking ' + store + ' - ' + product + '...')
 
-        now = datetime.now()
-        date = now.strftime('%Y-%m-%d')
-        time_now = now.strftime('%H:%M:%S')
+            try:
+                text = get_page_text(page, url)
+                status = check_stock(url, text)
+                price_status = classify_price(product, status)
+            except Exception as e:
+                print('Error checking ' + store + ' - ' + product + ':', e)
+                text = ''
+                status = 'ERROR'
+                price_status = 'UNKNOWN_PRICE'
 
-        with open('restock_log.csv', 'a', encoding='utf-8') as f:
-            f.write(date + ',' + time_now + ',' + store + ',' + product + ',' + status + ',' + price_status + ',' + url + '\n')
+            now = datetime.now()
+            date = now.strftime('%Y-%m-%d')
+            time_now = now.strftime('%H:%M:%S')
 
-        if status == 'TARGET_TRAFFIC_SPIKE':
-            if previous_status.get(url) != 'TARGET_TRAFFIC_SPIKE':
-                if can_alert(url, 'TARGET_TRAFFIC_SPIKE'):
-                    print('TARGET TRAFFIC SPIKE: ' + store + ' - ' + product)
-                    send_discord_alert(
-                        format_target_traffic_alert(store, product, url),
-                        channel='monitor',
-                    )
+            with open('restock_log.csv', 'a', encoding='utf-8') as f:
+                f.write(date + ',' + time_now + ',' + store + ',' + product + ',' + status + ',' + price_status + ',' + url + '\n')
 
-        if status == 'REAL_QUEUE':
-            if previous_status.get(url) != 'REAL_QUEUE':
-                if can_alert(url, 'REAL_QUEUE'):
-                    print('REAL QUEUE CONFIRMED: ' + store + ' - ' + product)
-                    send_discord_alert(
-                        format_real_queue_alert(store, product, url),
-                        channel='restocks',
-                    )
-
-        if status == 'POSSIBLE_QUEUE':
-            if previous_status.get(url) != 'POSSIBLE_QUEUE':
-                if can_alert(url, 'POSSIBLE_QUEUE'):
-                    print('POSSIBLE QUEUE: ' + store + ' - ' + product)
-                    send_discord_alert(
-                        format_possible_queue_alert(store, product, url),
-                        channel='monitor',
-                    )
-
-        if status == 'WEAK_QUEUE':
-            weak_queue_hits[url] = weak_queue_hits.get(url, 0) + 1
-            if weak_queue_hits[url] >= WEAK_QUEUE_MIN_HITS:
-                if previous_status.get(url) != 'WEAK_QUEUE':
-                    key = url + '_WEAK_QUEUE'
-                    now_time = time.time()
-                    last = cooldowns.get(key, 0)
-                    if now_time - last >= WEAK_QUEUE_COOLDOWN:
-                        cooldowns[key] = now_time
-                        print('WEAK TRAFFIC SIGNAL: ' + store + ' - ' + product)
+            if status == 'TARGET_TRAFFIC_SPIKE':
+                if previous_status.get(url) != 'TARGET_TRAFFIC_SPIKE':
+                    if can_alert(url, 'TARGET_TRAFFIC_SPIKE'):
+                        print('TARGET TRAFFIC SPIKE: ' + store + ' - ' + product)
                         send_discord_alert(
-                            format_weak_queue_alert(store, product, url),
+                            format_target_traffic_alert(store, product, url),
                             channel='monitor',
                         )
-        else:
-            weak_queue_hits[url] = 0
 
-        current_signal = get_stock_signal(text)
-        last_page_content[url] = current_signal
-        save_page_cache(last_page_content)
+            if status == 'REAL_QUEUE':
+                if previous_status.get(url) != 'REAL_QUEUE':
+                    if can_alert(url, 'REAL_QUEUE'):
+                        print('REAL QUEUE CONFIRMED: ' + store + ' - ' + product)
+                        send_discord_alert(
+                            format_real_queue_alert(store, product, url),
+                            channel='restocks',
+                        )
 
-        if status == 'IN_STOCK':
-            stable_counts[url] = stable_counts.get(url, 0) + 1
-            if stable_counts[url] >= REQUIRED_STABLE_CHECKS:
-                if previous_status.get(url) != 'IN_STOCK':
-                    if is_good_price(price_status):
-                        if can_alert(url, 'IN_STOCK'):
+            if status == 'POSSIBLE_QUEUE':
+                if previous_status.get(url) != 'POSSIBLE_QUEUE':
+                    if can_alert(url, 'POSSIBLE_QUEUE'):
+                        print('POSSIBLE QUEUE: ' + store + ' - ' + product)
+                        send_discord_alert(
+                            format_possible_queue_alert(store, product, url),
+                            channel='monitor',
+                        )
+
+            if status == 'WEAK_QUEUE':
+                weak_queue_hits[url] = weak_queue_hits.get(url, 0) + 1
+                if weak_queue_hits[url] >= WEAK_QUEUE_MIN_HITS:
+                    if previous_status.get(url) != 'WEAK_QUEUE':
+                        key = url + '_WEAK_QUEUE'
+                        now_time = time.time()
+                        last = cooldowns.get(key, 0)
+                        if now_time - last >= WEAK_QUEUE_COOLDOWN:
+                            cooldowns[key] = now_time
+                            print('WEAK TRAFFIC SIGNAL: ' + store + ' - ' + product)
                             send_discord_alert(
-                                format_restock_alert(store, product, status, price_status, url),
-                                channel='restocks',
+                                format_weak_queue_alert(store, product, url),
+                                channel='monitor',
                             )
-                            send_discord_alert(
-                                'Drop Logged\n\n'
-                                'Store: ' + store + '\n'
-                                'Product: ' + product + '\n'
-                                'Price: ' + price_status + '\n'
-                                'Time: ' + date + ' ' + time_now + '\n'
-                                'Link: ' + url,
-                                channel='logs',
-                            )
-        else:
-            stable_counts[url] = 0
+            else:
+                weak_queue_hits[url] = 0
 
-        previous_status[url] = status
-        print(store + ' - ' + product + ': ' + status + ' | ' + price_status)
+            current_signal = get_stock_signal(text)
+            last_page_content[url] = current_signal
+            save_page_cache(last_page_content)
 
-    print('Cycle complete. Waiting ' + str(CHECK_INTERVAL_SECONDS) + ' seconds...')
-    time.sleep(CHECK_INTERVAL_SECONDS)
+            if status == 'IN_STOCK':
+                stable_counts[url] = stable_counts.get(url, 0) + 1
+                if stable_counts[url] >= REQUIRED_STABLE_CHECKS:
+                    if previous_status.get(url) != 'IN_STOCK':
+                        if is_good_price(price_status):
+                            if can_alert(url, 'IN_STOCK'):
+                                send_discord_alert(
+                                    format_restock_alert(store, product, status, price_status, url),
+                                    channel='restocks',
+                                )
+                                send_discord_alert(
+                                    'Drop Logged\n\n'
+                                    'Store: ' + store + '\n'
+                                    'Product: ' + product + '\n'
+                                    'Price: ' + price_status + '\n'
+                                    'Time: ' + date + ' ' + time_now + '\n'
+                                    'Link: ' + url,
+                                    channel='logs',
+                                )
+            else:
+                stable_counts[url] = 0
+
+            previous_status[url] = status
+            print(store + ' - ' + product + ': ' + status + ' | ' + price_status)
+
+        print('Cycle complete. Waiting ' + str(CHECK_INTERVAL_SECONDS) + ' seconds...')
+        time.sleep(CHECK_INTERVAL_SECONDS)
+
+    browser.close()
