@@ -1,22 +1,8 @@
 store,product,url,priority
 Target,Phantasmal Flames ETB,https://www.target.com/p/pok-233-mon-trading-card-game-mega-evolution-8212-phantasmal-flames-elite-trainer-box/-/A-94860231,HIGH
 Target,Phantasmal Flames Booster Bundle,https://www.target.com/p/pok-233-mon-trading-card-game-mega-evolution-8212-phantasmal-flames-booster-bundle/-/A-94884496,HIGH
-PokemonCenter,Phantasmal Flames PC ETB,https://www.pokemoncenter.com/product/10-10186-109/pokemon-tcg-mega-evolution-phantasmal-flames-pokemon-center-elite-trainer-box,HIGH
-Target,Phantasmal Flames Search,https://www.target.com/s?searchTerm=phantasmal+flames+pokemon,HIGH
-PokemonCenter,Phantasmal Flames Search,https://www.pokemoncenter.com/search/phantasmal-flames,HIGH
-Target,Chaos Rising Search,https://www.target.com/s?searchTerm=chaos+rising+pokemon,HIGH
-PokemonCenter,Chaos Rising Search,https://www.pokemoncenter.com/search/chaos-rising,HIGH
-PokemonCenter,Ascended Heroes PC ETB,https://www.pokemoncenter.com/product/10-10315-108/pokemon-tcg-mega-evolution-ascended-heroes-pokemon-center-elite-trainer-box,MEDIUM
-Target,Ascended Heroes Search,https://www.target.com/s?searchTerm=ascended+heroes+pokemon,HIGH
-PokemonCenter,Ascended Heroes Search,https://www.pokemoncenter.com/search/ascended-heroes,HIGH
-Target,Destined Rivals Search,https://www.target.com/s?searchTerm=destined+rivals+pokemon,HIGH
-PokemonCenter,Destined Rivals Search,https://www.pokemoncenter.com/search/destined-rivals,HIGH
-Target,Prismatic Evolutions Search,https://www.target.com/s?searchTerm=prismatic+evolutions+pokemon,MEDIUM
-PokemonCenter,Prismatic Evolutions Search,https://www.pokemoncenter.com/search/prismatic-evolutions,MEDIUM
-Target,Surging Sparks Search,https://www.target.com/s?searchTerm=surging+sparks+pokemon,MEDIUM
-PokemonCenter,Surging Sparks Search,https://www.pokemoncenter.com/search/surging-sparks,MEDIUM
-Target,Perfect Order Search,https://www.target.com/s?searchTerm=perfect+order+pokemon,MEDIUM
-PokemonCenter,Perfect Order Search,https://www.pokemoncenter.com/search/perfect-order,MEDIUM
+Target,Chaos Rising Elite Trainer Box,https://www.target.com/p/-/A-95267143,HIGH
+Target,Chaos Rising Booster Bundle,https://www.target.com/p/-/A-95298172,HIGH
 Target,Ascended Heroes Booster Bundle,https://www.target.com/p/-/A-95120834,HIGH
 Target,Ascended Heroes Elite Trainer Box,https://www.target.com/p/-/A-95082118,HIGH
 Target,Ascended Heroes Mega Lucario Premium Collection,https://www.target.com/p/-/A-1010583462,MEDIUM
@@ -30,10 +16,4 @@ Target,Ascended Heroes Mini Tin (Riolu/Darumaka),https://www.target.com/p/-/A-10
 Target,Destined Rivals Booster Bundle,https://www.target.com/p/-/A-94300067,HIGH
 Target,Destined Rivals Elite Trainer Box,https://www.target.com/p/-/A-94300069,HIGH
 Target,Destined Rivals Sleeved Booster Pack,https://www.target.com/p/-/A-1004021929,LOW
-PokemonCenter,Ascended Heroes Booster Bundle,https://www.pokemoncenter.com/product/10-10311-114/pokemon-tcg-mega-evolution-ascended-heroes-booster-bundle-6-packs,HIGH
-PokemonCenter,Ascended Heroes Tech Sticker Collection Charmander,https://www.pokemoncenter.com/product/10-10314-121/pokemon-tcg-mega-evolution-ascended-heroes-tech-sticker-collection-charmander,MEDIUM
-PokemonCenter,Ascended Heroes Tech Sticker Collection Gastly,https://www.pokemoncenter.com/product/10-10314-122/pokemon-tcg-mega-evolution-ascended-heroes-tech-sticker-collection-gastly,MEDIUM
-PokemonCenter,Ascended Heroes Mini Tin Pikachu/Tepig,https://www.pokemoncenter.com/product/10-10318-141/pokemon-tcg-mega-evolution-ascended-heroes-mini-tin-pikachu-and-tepig,MEDIUM
-PokemonCenter,Ascended Heroes Deluxe Pin Collection,https://www.pokemoncenter.com/product/10-10301-108/pokemon-tcg-mega-evolution-ascended-heroes-first-partners-deluxe-pin-collection,HIGH
-PokemonCenter,Ascended Heroes Pokemon Center ETB,https://www.pokemoncenter.com/product/10-10315-108/pokemon-tcg-mega-evolution-ascended-heroes-pokemon-center-elite-trainer-box,HIGH
-PokemonCenter,Ascended Heroes Mini Tin Clefairy/Chikorita,https://www.pokemoncenter.com/product/10-10318-140/pokemon-tcg-mega-evolution-ascended-heroes-mini-tin-clefairy-and-chikorita,MEDIUM
+Target,First Partner Illustration Collection Series 1,https://www.target.com/p/pok-233-mon-trading-card-game-first-partner-illustration-collection-series-1/-/A-95225595,HIGH
